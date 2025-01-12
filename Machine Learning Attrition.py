@@ -15,7 +15,7 @@ import shap
 from sklearn.metrics import classification_report, roc_auc_score, confusion_matrix, ConfusionMatrixDisplay, RocCurveDisplay
 
 # Load the dataset
-file_path = r"C:\Users\sy.papadopoulos\OneDrive - Alumil S.A\Desktop\ml attrition data latest.csv"
+file_path = r"path"
 
 try:
     df = pd.read_csv(file_path, encoding='ISO-8859-7', sep=';')
