@@ -46,6 +46,7 @@ Employee attrition, or turnover, is a critical challenge that impacts organizati
 - **Predictive Power**: Achieved a high-performing XGBoost model with an ROC-AUC of 0.885.
 - **Strategic Insights**: Delivered division-level attrition insights, enabling HR teams to implement targeted retention strategies.
 - **Data-Driven Decision-Making**: Created a pipeline of visual and statistical tools to empower HR management.
+![image](https://github.com/user-attachments/assets/769ee17f-7b77-49fc-98ca-72492544645c)
 
 ---
 
