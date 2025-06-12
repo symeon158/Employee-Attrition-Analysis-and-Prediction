@@ -39,6 +39,9 @@ Employee attrition, or turnover, is a critical challenge that impacts organizati
 - Leveraged **SHAP (SHapley Additive exPlanations)** to:
   - Identify top predictors of employee attrition.
   - Provide division-level insights to help HR proactively address retention risks.
+ 
+  ![Shap_Tenure_Grade](https://github.com/user-attachments/assets/86981798-6c38-4d92-8179-d5a14ccbc17c)
+
 
 ---
 
