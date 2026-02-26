@@ -16,14 +16,13 @@ Employee attrition is a critical challenge impacting organizational stability. T
 ## 📊 Performance Benchmarks
 
 Our refined XGBoost model demonstrates high reliability on unseen test data, ensuring that HR interventions are targeted and effective.
+Based on unseen test data, our optimized XGBoost model achieved:
+- **ROC-AUC Score**: **0.931** (Excellent separation power)
+- **F1-Score (Attrition)**: **0.81**
+- **Recall**: **0.80** (Correctly identifying 8 out of 10 flight risks)
 
-| Metric | Score | Impact |
-| :--- | :--- | :--- |
-| **ROC-AUC** | **0.885** | High ability to distinguish between "stayers" and "leavers". |
-| **F1-Score (Class 1)** | **0.81** | Excellent balance of precision and recall for attrition cases. |
-| **Recall** | **0.80** | Successfully identifies 80% of actual turnover risks. |
+<img width="1500" height="600" alt="matrix_roc" src="https://github.com/user-attachments/assets/87c08ff2-1ba7-4c55-8d60-a78a6dcb8085" />
 
-<img width="640" height="480" alt="Figure_11" src="https://github.com/user-attachments/assets/7eecb83c-61a1-4c72-9d30-e7245a687221" />
 
 
 ---
@@ -72,9 +71,4 @@ We utilize **SHAP** to decode the "black box" of machine learning:
 
 ---
 
-## 📁 Repository Structure
-- `attrition_model.py`: Main processing and prediction script.
-- `requirements.txt`: Necessary libraries for reproduction.
-- `Attrition_Risk_Report.xlsx`: (Sample) Output provided to HR teams.
 
----
