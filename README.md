@@ -23,6 +23,7 @@ Our refined XGBoost model demonstrates high reliability on unseen test data, ens
 | **F1-Score (Class 1)** | **0.81** | Excellent balance of precision and recall for attrition cases. |
 | **Recall** | **0.80** | Successfully identifies 80% of actual turnover risks. |
 
+<img width="640" height="480" alt="Figure_1" src="https://github.com/user-attachments/assets/ec679142-2285-48b3-b340-ca697af816ce" />
 
 
 ---
@@ -45,6 +46,7 @@ We utilize **SHAP** to decode the "black box" of machine learning:
 - **Global Importance**: Rankings of which factors (Salary, Tenure, Grade) drive turnover company-wide.
 - **Local Explanations**: Identification of specific risk factors for individual employees to assist in "Stay Interviews."
 
+<img width="1536" height="850" alt="shap_explanations" src="https://github.com/user-attachments/assets/deb7a675-72a2-486f-bf24-12a8d5249aad" />
 
 
 ---
