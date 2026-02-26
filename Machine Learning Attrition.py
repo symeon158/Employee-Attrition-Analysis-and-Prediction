@@ -5,15 +5,13 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 
 from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV
-from sklearn.metrics import (classification_report, roc_auc_score, confusion_matrix, 
-                             ConfusionMatrixDisplay, precision_score, recall_score, f1_score)
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import (classification_report, confusion_matrix, 
+                             ConfusionMatrixDisplay, f1_score)
 from xgboost import XGBClassifier
 from sklearn.preprocessing import StandardScaler
-from sklearn.utils.class_weight import compute_class_weight
 
-# --- 1. Load & Clean Data ---
-file_path = r"path"
+# --- 1. Load Data ---
+file_path = r""
 try:
     df = pd.read_csv(file_path, encoding='ISO-8859-7', sep=';')
 except:
@@ -21,113 +19,131 @@ except:
 
 df.columns = df.columns.str.strip()
 
-# Date conversions
-date_columns = ['Ημ/νία γέννησης', 'Ημ/νία πρόσληψης', 'Ημ/νία αποχώρησης']
-for col in date_columns:
-    if col in df.columns:
-        df[col] = pd.to_datetime(df[col], format='%d/%m/%Y', errors='coerce', dayfirst=True)
-
-# Feature Engineering
-today = datetime.today()
-if 'Ημ/νία πρόσληψης' in df.columns:
-    df['Tenure'] = (df['Ημ/νία αποχώρησης'].fillna(today) - df['Ημ/νία πρόσληψης']).dt.days // 365
-if 'Ημ/νία αποχώρησης' in df.columns:
-    df['Attrition'] = df['Ημ/νία αποχώρησης'].notnull().astype(int)
-
+# --- 2. Rename Columns FIRST to avoid KeyErrors ---
 df.rename(columns={
-    'Αριθμός μητρώου': 'Registry Number', 'Φύλο': 'Gender', 'Ηλικία': 'Age',
-    'Περιγραφή Αιτ. Αποχώρησης': 'Departure Reason Description', 'Ονομαστικός μισθός': 'Nominal Salary',
-    'Σχέση Εργασίας': 'Work Relationship', 'Περιγραφή Υποκαταστήματος': 'City',
-    'Διεύθυνση': 'Division', 'Ιδιότητα Προσωπικού': 'Job Property',
-    'Θέση εργασίας': 'Job Position', 'GRADE': 'Grade', 'ΤΜΗΜΑ': 'Department'
+    'Αριθμός μητρώου': 'Registry Number', 
+    'Φύλο': 'Gender', 
+    'Ηλικία': 'Age',
+    'Ημ/νία πρόσληψης': 'Hire Date',
+    'Ημ/νία αποχώρησης': 'Departure Date',
+    'Περιγραφή Αιτ. Αποχώρησης': 'Departure Reason Description', 
+    'Ονομαστικός μισθός': 'Nominal Salary',
+    'Σχέση Εργασίας': 'Work Relationship', 
+    'Περιγραφή Υποκαταστήματος': 'City',
+    'Διεύθυνση': 'Division', 
+    'Ιδιότητα Προσωπικού': 'Job Property',
+    'Θέση εργασίας': 'Job Position', 
+    'GRADE': 'Grade', 
+    'ΤΜΗΜΑ': 'Department'
 }, inplace=True)
 
-# Filters: Only Indefinite contracts and Voluntary departures
+# --- 3. Feature Engineering & Filtering ---
+# Convert date columns (using the new names)
+date_cols = ['Hire Date', 'Departure Date']
+for col in date_cols:
+    df[col] = pd.to_datetime(df[col], format='%d/%m/%Y', errors='coerce', dayfirst=True)
+
+today = datetime.today()
+df['Tenure'] = (df['Departure Date'].fillna(today) - df['Hire Date']).dt.days // 365
+df['Attrition'] = df['Departure Date'].notnull().astype(int)
+
+# Filters
 df = df[df['Work Relationship'] == 'ΑΟΡΙΣΤΟΥ ΧΡΟΝΟΥ']
 df = df[(df['Departure Reason Description'] == 'VOLUNTARY DEPARTURE') | (df['Departure Reason Description'].isnull())]
 df.loc[df['Department'].astype(str).str.contains('ΕΠΑΝΑΤΙΜΟΛΟΓΗΣΗ', na=False), 'Attrition'] = 0
 df['Gender'] = df['Gender'].replace({1: 'Male', 2: 'Female'})
+
+# This line now works because 'Departure Date' exists!
 df = df[(df['Departure Date'] > '2018-12-31') | (df['Departure Date'].isnull())]
 
 # Salary & Grade Cleaning
-df['Nominal Salary'] = df['Nominal Salary'].str.replace(',', '.', regex=False)
+df['Nominal Salary'] = df['Nominal Salary'].astype(str).str.replace(',', '.', regex=False)
 df['Nominal Salary'] = pd.to_numeric(df['Nominal Salary'], errors='coerce')
-df['Nominal Salary'].fillna(df['Nominal Salary'].median(), inplace=True)
+df['Nominal Salary'] = df['Nominal Salary'].fillna(df['Nominal Salary'].median())
 df['Job Property'] = df['Job Property'].fillna('OPERATIONAL')
-df['Grade'] = df['Grade'].replace({'99999': '0.9', '0,1': '0.99'}).astype(float)
+df['Grade'] = df['Grade'].astype(str).replace({'99999': '0.9', '0,1': '0.99'}).astype(float)
 
-# Save active employees for final prediction before dropping columns
-active_mask = df['Attrition'] == 0
-df_active_raw = df[active_mask].copy()
+# --- 4. Preprocessing for Machine Learning ---
+# Drop non-numeric/raw date columns
+cols_to_drop = ['Departure Date', 'Hire Date', 'Work Relationship', 'Departure Reason Description']
+df_ml = df.drop(columns=cols_to_drop)
 
-# Prepare Modeling Data
-df_ml = df.drop(columns=['Departure Date', 'Ημ/νία γέννησης', 'Ημ/νία πρόσληψης', 'Work Relationship', 'Departure Reason Description'])
 categorical_columns = ['Gender', 'City', 'Division', 'Job Property', 'Job Position', 'Department']
-df_transformed = pd.get_dummies(df_ml, columns=categorical_columns, drop_first=True)
+df_final = pd.get_dummies(df_ml, columns=categorical_columns, drop_first=True)
 
-X = df_transformed.drop(columns=['Attrition', 'Registry Number'])
-y = df_transformed['Attrition']
+# Separate Target and Features
+X = df_final.drop(columns=['Attrition', 'Registry Number'])
+y = df_final['Attrition']
 
-# --- 2. Train/Test Split (The Fix for Leakage) ---
+# Split Data (80% Train, 20% Test)
 X_train_raw, X_test_raw, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y, random_state=42)
 
 scaler = StandardScaler()
 X_train = scaler.fit_transform(X_train_raw)
 X_test = scaler.transform(X_test_raw)
 
-# Calculate Class Weights
-counts = np.bincount(y_train)
-scale_pos_weight_value = counts[0] / counts[1]
+# Handle Class Imbalance
+ratio = (y_train == 0).sum() / (y_train == 1).sum()
 
-# --- 3. Hyperparameter Tuning ---
-param_grid = {
-    'n_estimators': [100, 200],
-    'max_depth': [3, 5],
-    'learning_rate': [0.01, 0.1],
-    'subsample': [0.8],
-    'colsample_bytree': [0.8]
-}
+# --- 5. Model Training ---
+xgb = XGBClassifier(scale_pos_weight=ratio, random_state=42, eval_metric='logloss')
+param_grid = {'max_depth': [3, 5], 'learning_rate': [0.01, 0.1], 'n_estimators': [100, 200]}
 
-xgb = XGBClassifier(scale_pos_weight=scale_pos_weight_value, random_state=42, use_label_encoder=False, eval_metric='logloss')
-kf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-grid_search = GridSearchCV(xgb, param_grid, cv=kf, scoring='f1', n_jobs=-1)
-grid_search.fit(X_train, y_train)
+grid = GridSearchCV(xgb, param_grid, cv=5, scoring='f1', n_jobs=-1)
+grid.fit(X_train, y_train)
+best_model = grid.best_estimator_
 
-best_xgb = grid_search.best_estimator_
-
-# --- 4. Evaluation on Unseen Test Data ---
-y_pred = best_xgb.predict(X_test)
-print("\n--- Test Set Performance ---")
+# --- 6. Evaluation ---
+y_pred = best_model.predict(X_test)
+print("\n--- Model Performance on Test Set ---")
 print(classification_report(y_test, y_pred))
 
-# Visualizing Confusion Matrix
-ConfusionMatrixDisplay.from_estimator(best_xgb, X_test, y_test, cmap='Blues')
-plt.title("Confusion Matrix (Test Set)")
+# Confusion Matrix Visualization
+
+ConfusionMatrixDisplay.from_estimator(best_model, X_test, y_test, cmap='Reds')
+plt.title("Confusion Matrix (Unseen Data)")
 plt.show()
 
-# --- 5. Prediction for Currently Active Employees ---
-# Aligning active employees with training columns
-X_active = df_transformed[active_mask].drop(columns=['Attrition', 'Registry Number'])
-X_active_scaled = scaler.transform(X_active)
+# --- 7. Predicting on Active Employees ---
+active_employees_df = df[df['Attrition'] == 0].copy()
+# Align features with the training set
+X_active_raw = df_final[df_final['Attrition'] == 0].drop(columns=['Attrition', 'Registry Number'])
+X_active_scaled = scaler.transform(X_active_raw)
 
-probs = best_xgb.predict_proba(X_active_scaled)[:, 1]
-preds = (probs > 0.5).astype(int)
+active_employees_df['Probability'] = best_model.predict_proba(X_active_scaled)[:, 1]
+active_employees_df['Risk_Level'] = np.where(active_employees_df['Probability'] > 0.6, 'High', 
+                                            np.where(active_employees_df['Probability'] > 0.3, 'Medium', 'Low'))
 
-df_active_raw['Attrition_Probability'] = probs
-df_active_raw['Predicted_Attrition'] = preds
-
-# --- 6. SHAP Interpretability ---
-# Use TreeExplainer for XGBoost (much faster)
-explainer = shap.TreeExplainer(best_xgb)
+# --- 8. SHAP Explanation ---
+explainer = shap.TreeExplainer(best_model)
 shap_values = explainer.shap_values(X_train)
 
-print("\nGenerating SHAP Summary Plot...")
+print("\nGenerating SHAP Summary...")
 shap.summary_plot(shap_values, X_train_raw)
 
+# Final Output
+print("\nTop 5 High-Risk Employees:")
+print(active_employees_df[['Registry Number', 'Division', 'Probability']].sort_values(by='Probability', ascending=False).head())
 
-# --- 7. Final Results Output ---
-likely_to_attrite = df_active_raw[df_active_raw['Predicted_Attrition'] == 1]
-print(f"\nTotal Active Employees: {len(df_active_raw)}")
-print(f"Predicted to leave next year: {len(likely_to_attrite)}")
-print("\nTop 5 Risks:")
-print(likely_to_attrite[['Registry Number', 'Division', 'Attrition_Probability']].sort_values(by='Attrition_Probability', ascending=False).head())
+# --- 9. Exporting Results for HR ---
+# Select and reorder columns for a clean Excel report
+hr_report = active_employees_df[[
+    'Registry Number', 'Division', 'Department', 'Job Position', 
+    'Tenure', 'Nominal Salary', 'Probability', 'Risk_Level'
+]].copy()
+
+# Sort by highest probability first
+hr_report = hr_report.sort_values(by='Probability', ascending=False)
+
+# Export to Excel
+timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+file_name = f"Attrition_Risk_Report_{timestamp}.xlsx"
+hr_report.to_excel(file_name, index=False)
+print(f"\nReport exported successfully: {file_name}")
+
+# --- 10. Summary of Top Drivers (SHAP) ---
+# This explains what features generally push people to leave
+plt.figure(figsize=(10, 6))
+shap.summary_plot(shap_values, X_train_raw, show=False)
+plt.title("Key Drivers of Employee Attrition")
+plt.show()
